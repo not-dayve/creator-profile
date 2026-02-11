@@ -1,8 +1,7 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { nodePolyfills } from '@bangjelkoski/vite-plugin-node-polyfills'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { nodePolyfills } from '@bangjelkoski/vite-plugin-node-polyfills';
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), nodePolyfills()],
   build: {
@@ -11,4 +10,9 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
-})
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/tests/setup.ts'],
+    globals: true,
+  },
+});

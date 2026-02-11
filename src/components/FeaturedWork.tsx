@@ -1,47 +1,54 @@
-import React from 'react';
-import { ExternalLink } from 'lucide-react';
 import { FeaturedItem } from '../types/profile';
 
-interface FeaturedWorkProps {
+interface Props {
   items: FeaturedItem[];
+  editable: boolean;
+  pinnedItemIds: string[];
+  onTogglePin: (id: string) => void;
 }
 
-export function FeaturedWork({ items }: FeaturedWorkProps) {
-  if (items.length === 0) return null;
+export function FeaturedWork({ items, editable, pinnedItemIds, onTogglePin }: Props) {
+  if (!items.length) return null;
+
+  const pinned = items.filter((item) => pinnedItemIds.includes(item.id)).slice(0, 5);
+  if (!pinned.length && !editable) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">Featured Work</h2>
-        <span className="text-neutral-400 text-sm">Curated by creator</span>
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-100">Featured work</h2>
+        <span className="text-xs text-slate-400">Curated by creator</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {items.map((item) => (
-          <a
-            key={item.id}
-            href={item.marketplaceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden hover:border-neutral-700 transition-all hover:shadow-lg"
-          >
-            <div className="aspect-square bg-neutral-800 relative overflow-hidden">
-              <img
-                src={item.imageUrl}
-                alt={item.title}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                <ExternalLink className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </div>
-            <div className="p-3">
-              <p className="text-neutral-300 text-sm font-medium truncate">{item.title}</p>
-              <p className="text-neutral-500 text-xs capitalize">{item.type}</p>
-            </div>
-          </a>
-        ))}
-      </div>
-    </div>
+      {editable && (
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {items.slice(0, 12).map((item) => {
+            const selected = pinnedItemIds.includes(item.id);
+            return (
+              <button
+                key={`pin-${item.id}`}
+                onClick={() => onTogglePin(item.id)}
+                className={`rounded-md border px-3 py-2 text-left text-sm ${
+                  selected ? 'border-blue-700 bg-blue-950 text-blue-100' : 'border-slate-800 bg-slate-900 text-slate-200'
+                }`}
+              >
+                {selected ? 'Pinned' : 'Pin'} • {item.title}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {pinned.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          {pinned.map((item) => (
+            <a key={item.id} href={item.marketplaceUrl} target="_blank" rel="noopener noreferrer" className="overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
+              <img src={item.imageUrl} alt={item.title} className="aspect-square w-full object-cover" />
+              <div className="truncate px-2 py-2 text-xs text-slate-300">{item.title}</div>
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

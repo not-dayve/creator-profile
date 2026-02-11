@@ -1,149 +1,106 @@
-import React from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Filter } from 'lucide-react';
-import { ActivityLogEntry } from '../types/profile';
+import { useMemo, useState } from 'react';
+import { ActivityLogEntry, ActivityEventType } from '../types/profile';
 
-interface ActivityLogProps {
+interface Props {
   activities: ActivityLogEntry[];
 }
 
-const eventTypeLabels: Record<ActivityLogEntry['eventType'], string> = {
+const labelMap: Record<ActivityEventType, string> = {
   NFT_MINT: 'NFT Mint',
   TOKEN_TRANSFER: 'Token Transfer',
   CONTRACT_INTERACTION: 'Contract Interaction',
   CAMPAIGN_PARTICIPATION: 'Campaign Participation',
   COLLECTION_CREATED: 'Collection Created',
+  OTHER: 'Other',
 };
 
-const eventTypeColors: Record<ActivityLogEntry['eventType'], string> = {
-  NFT_MINT: 'bg-purple-900/30 text-purple-300',
-  TOKEN_TRANSFER: 'bg-blue-900/30 text-blue-300',
-  CONTRACT_INTERACTION: 'bg-green-900/30 text-green-300',
-  CAMPAIGN_PARTICIPATION: 'bg-yellow-900/30 text-yellow-300',
-  COLLECTION_CREATED: 'bg-pink-900/30 text-pink-300',
-};
+export function ActivityLog({ activities }: Props) {
+  const [eventType, setEventType] = useState<'ALL' | ActivityEventType>('ALL');
+  const [protocol, setProtocol] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
 
-export function ActivityLog({ activities }: ActivityLogProps) {
-  const [expanded, setExpanded] = React.useState(false);
-  const [filterType, setFilterType] = React.useState<ActivityLogEntry['eventType'] | 'all'>('all');
+  const protocols = useMemo(() => ['ALL', ...new Set(activities.map((entry) => entry.protocol || 'Unknown'))], [activities]);
 
-  const displayedActivities = expanded ? activities : activities.slice(0, 10);
-  const filteredActivities = filterType === 'all' 
-    ? displayedActivities 
-    : displayedActivities.filter(a => a.eventType === filterType);
+  const filtered = useMemo(
+    () =>
+      activities.filter((entry) => {
+        const byType = eventType === 'ALL' ? true : entry.eventType === eventType;
+        const byProtocol = protocol === 'ALL' ? true : (entry.protocol || 'Unknown') === protocol;
+        return byType && byProtocol;
+      }),
+    [activities, eventType, protocol],
+  );
 
-  const formatDate = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const paged = filtered.slice(0, page * pageSize);
+
+  const exportPayload = () => {
+    const blob = new Blob([JSON.stringify(filtered, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'injective-activity-log.json';
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
-  const truncateHash = (hash: string) => {
-    return `${hash.slice(0, 8)}...${hash.slice(-6)}`;
-  };
+  if (activities.length === 0) {
+    return <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">No transactions recorded yet</div>;
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">On-Chain Activity Log</h2>
-        <div className="flex items-center space-x-2">
-          <Filter className="w-4 h-4 text-neutral-400" />
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as any)}
-            className="bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Events</option>
-            <option value="NFT_MINT">NFT Mints</option>
-            <option value="TOKEN_TRANSFER">Token Transfers</option>
-            <option value="CONTRACT_INTERACTION">Contract Interactions</option>
-            <option value="CAMPAIGN_PARTICIPATION">Campaign Participation</option>
-            <option value="COLLECTION_CREATED">Collections Created</option>
+    <section className="rounded-lg border border-slate-800 bg-slate-900">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 p-4">
+        <h2 className="text-lg font-semibold text-slate-100">On-chain activity log</h2>
+        <div className="flex items-center gap-2">
+          <select value={eventType} onChange={(e) => setEventType(e.target.value as 'ALL' | ActivityEventType)} className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100">
+            <option value="ALL">All event types</option>
+            {Object.entries(labelMap).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
           </select>
+          <select value={protocol} onChange={(e) => setProtocol(e.target.value)} className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100">
+            {protocols.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+          <button onClick={exportPayload} className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-100 hover:bg-slate-950">
+            Export JSON
+          </button>
         </div>
       </div>
 
-      <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
-        {/* Table Header */}
-        <div className="bg-neutral-800 border-b border-neutral-700 px-6 py-3 grid grid-cols-12 gap-4 text-xs font-medium text-neutral-400 uppercase tracking-wider">
-          <div className="col-span-3">Date/Time</div>
-          <div className="col-span-2">Event Type</div>
-          <div className="col-span-2">Protocol</div>
-          <div className="col-span-3">Transaction Hash</div>
-          <div className="col-span-1">Gas Used</div>
-          <div className="col-span-1">Status</div>
-        </div>
-
-        {/* Table Body */}
-        <div className="divide-y divide-neutral-800">
-          {filteredActivities.length === 0 ? (
-            <div className="px-6 py-12 text-center">
-              <p className="text-neutral-400">No transactions recorded yet</p>
-            </div>
-          ) : (
-            filteredActivities.map((activity) => (
-              <div
-                key={activity.id}
-                className="px-6 py-4 grid grid-cols-12 gap-4 items-center hover:bg-neutral-800/50 transition-colors"
-              >
-                <div className="col-span-3 text-neutral-300 text-sm font-mono">
-                  {formatDate(activity.timestamp)}
-                </div>
-                <div className="col-span-2">
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${eventTypeColors[activity.eventType]}`}>
-                    {eventTypeLabels[activity.eventType]}
-                  </span>
-                </div>
-                <div className="col-span-2 text-neutral-300 text-sm">
-                  {activity.protocol || 'Unknown'}
-                </div>
-                <div className="col-span-3">
-                  <a
-                    href={`https://explorer.injective.network/transaction/${activity.transactionHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center space-x-1 text-blue-400 hover:text-blue-300 text-sm font-mono group"
-                  >
-                    <span>{truncateHash(activity.transactionHash)}</span>
-                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </a>
-                </div>
-                <div className="col-span-1 text-neutral-400 text-sm font-mono">
-                  {parseInt(activity.gasUsed).toLocaleString()}
-                </div>
-                <div className="col-span-1">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      activity.status === 'success'
-                        ? 'bg-green-900/30 text-green-300'
-                        : 'bg-red-900/30 text-red-300'
-                    }`}
-                  >
-                    {activity.status}
-                  </span>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Expand/Collapse Button */}
-        {activities.length > 10 && (
-          <div className="border-t border-neutral-800 px-6 py-3">
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
-            >
-              <span>{expanded ? 'Show Less' : `View All ${activities.length} Transactions`}</span>
-              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-          </div>
-        )}
+      <div className="grid grid-cols-12 gap-2 border-b border-slate-800 bg-slate-950 px-4 py-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+        <div className="col-span-3">Date/Time</div>
+        <div className="col-span-2">Event Type</div>
+        <div className="col-span-2">Protocol</div>
+        <div className="col-span-3">Transaction Hash</div>
+        <div className="col-span-1">Gas</div>
+        <div className="col-span-1">Status</div>
       </div>
-    </div>
+
+      {paged.map((activity) => (
+        <div key={activity.id} className="grid grid-cols-12 gap-2 border-b border-slate-800 px-4 py-2 text-xs text-slate-200">
+          <div className="col-span-3">{new Date(activity.timestamp).toISOString()}</div>
+          <div className="col-span-2">{labelMap[activity.eventType]}</div>
+          <div className="col-span-2">{activity.protocol || 'Unknown'}</div>
+          <a href={`https://explorer.injective.network/transaction/${activity.transactionHash}`} className="col-span-3 font-mono text-blue-300" target="_blank" rel="noopener noreferrer">
+            {`${activity.transactionHash.slice(0, 12)}...${activity.transactionHash.slice(-6)}`}
+          </a>
+          <div className="col-span-1">{Number(activity.gasUsed || 0).toLocaleString()}</div>
+          <div className="col-span-1">{activity.status}</div>
+        </div>
+      ))}
+
+      {paged.length < filtered.length && (
+        <button onClick={() => setPage((current) => current + 1)} className="w-full p-3 text-sm text-blue-300 hover:bg-slate-950">
+          Load more
+        </button>
+      )}
+    </section>
   );
 }

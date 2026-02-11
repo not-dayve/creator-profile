@@ -1,58 +1,46 @@
-import React from 'react';
-import { Share2, Copy, Check, QrCode } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
-interface ShareProfileProps {
+interface Props {
   address: string;
 }
 
-export function ShareProfile({ address }: ShareProfileProps) {
-  const [copied, setCopied] = React.useState(false);
-  const profileUrl = `${window.location.origin}/profile/${address}`;
+export function ShareProfile({ address }: Props) {
+  const [copied, setCopied] = useState<'none' | 'link' | 'embed'>('none');
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(profileUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const profileUrl = `${window.location.origin}/profile/${address}`;
+  const embedCode = `<iframe src="${profileUrl}" width="360" height="520" style="border:0;" title="Injective Creator Profile"></iframe>`;
+  const qrUrl = useMemo(
+    () => `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(profileUrl)}`,
+    [profileUrl],
+  );
+
+  const copy = async (value: string, type: 'link' | 'embed') => {
+    await navigator.clipboard.writeText(value);
+    setCopied(type);
+    setTimeout(() => setCopied('none'), 1200);
   };
 
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6">
-      <div className="flex items-center space-x-2 mb-4">
-        <Share2 className="w-5 h-5 text-neutral-400" />
-        <h3 className="text-lg font-semibold text-white">Share Profile</h3>
-      </div>
+    <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <h2 className="text-lg font-semibold text-slate-100">Share profile</h2>
 
-      <div className="space-y-3">
-        <div className="flex items-center space-x-2">
-          <input
-            type="text"
-            value={profileUrl}
-            readOnly
-            className="flex-1 bg-neutral-800 border border-neutral-700 text-neutral-300 px-3 py-2 rounded-lg text-sm font-mono focus:outline-none"
-          />
-          <button
-            onClick={handleCopy}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
-          >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" />
-                <span>Copy Link</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        <button className="w-full bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-neutral-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2">
-          <QrCode className="w-4 h-4" />
-          <span>Generate QR Code</span>
+      <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
+        <input readOnly value={profileUrl} className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200" />
+        <button onClick={() => copy(profileUrl, 'link')} className="rounded-md border border-slate-700 px-3 py-2 text-xs text-slate-100 hover:bg-slate-950">
+          {copied === 'link' ? 'Copied' : 'Copy profile link'}
         </button>
       </div>
-    </div>
+
+      <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center">
+        <textarea readOnly value={embedCode} className="h-20 flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200" />
+        <button onClick={() => copy(embedCode, 'embed')} className="rounded-md border border-slate-700 px-3 py-2 text-xs text-slate-100 hover:bg-slate-950">
+          {copied === 'embed' ? 'Copied' : 'Copy iframe code'}
+        </button>
+      </div>
+
+      <div className="mt-4 inline-flex rounded-md border border-slate-700 bg-white p-2">
+        <img src={qrUrl} alt="QR code for profile URL" className="h-32 w-32" />
+      </div>
+    </section>
   );
 }
