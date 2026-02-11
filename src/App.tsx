@@ -1,249 +1,224 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { Wallet } from '@injectivelabs/wallet-base';
+import { Loader2 } from 'lucide-react';
 import { Header } from './components/Header';
 import { IdentityCard } from './components/IdentityCard';
 import { ContributionSnapshot } from './components/ContributionSnapshot';
-import { ActivityLog } from './components/ActivityLog';
 import { FeaturedWork } from './components/FeaturedWork';
+import { ActivityLog } from './components/ActivityLog';
 import { ExternalLinks } from './components/ExternalLinks';
-import { EmptyState } from './components/EmptyState';
 import { ShareProfile } from './components/ShareProfile';
-import { connectWallet, disconnectWallet } from './services/walletService';
-import { fetchCreatorProfile, checkInjectiveNativeBadge } from './services/blockchainService';
-import { CreatorProfile } from './types/profile';
-import { Loader2 } from 'lucide-react';
+import { EmptyState } from './components/EmptyState';
+import { CurationControls } from './components/CurationControls';
+import {
+  checkInjectiveNativeBadge,
+  fetchCreatorProfile,
+  saveCurationPreferences,
+} from './services/blockchainService';
+import { connectWallet, disconnectWallet, isInjectiveAddress } from './services/walletService';
+import { CreatorProfile, RoleTag, SectionKey } from './types/profile';
 
-function ProfilePage() {
-  const { address } = useParams<{ address: string }>();
-  const navigate = useNavigate();
-  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
-  const [profile, setProfile] = useState<CreatorProfile | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const hasInjectiveBadge = profile ? checkInjectiveNativeBadge(profile.contributionMetrics) : false;
-
+function useProfileSeo(identity: string | undefined) {
   useEffect(() => {
-    if (address) {
-      loadProfile(address);
-    }
-  }, [address]);
+    const title = `${identity || 'Profile'} - Injective Creator Profile`;
+    document.title = title;
 
-  const loadProfile = async (addr: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const profileData = await fetchCreatorProfile(addr);
-      setProfile(profileData);
-    } catch (err) {
-      setError('Failed to load profile data');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleConnect = async (walletType: Wallet) => {
-    try {
-      const addresses = await connectWallet(walletType);
-      if (addresses.length > 0) {
-        setConnectedAddress(addresses[0]);
-        navigate(`/profile/${addresses[0]}`);
-      }
-    } catch (err) {
-      console.error('Connection failed:', err);
-      setError('Failed to connect wallet');
-    }
-  };
-
-  const handleDisconnect = async () => {
-    await disconnectWallet();
-    setConnectedAddress(null);
-    navigate('/');
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-950">
-        <Header
-          address={connectedAddress}
-          hasInjectiveBadge={false}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-        />
-        <div className="pt-24 flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
-            <p className="text-neutral-400">Loading profile data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-neutral-950">
-        <Header
-          address={connectedAddress}
-          hasInjectiveBadge={false}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-        />
-        <div className="pt-24 flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <p className="text-red-400 mb-4">{error}</p>
-            <button
-              onClick={() => address && loadProfile(address)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile && address) {
-    return (
-      <div className="min-h-screen bg-neutral-950">
-        <Header
-          address={connectedAddress}
-          hasInjectiveBadge={false}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-        />
-        <div className="pt-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <EmptyState address={address} />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-neutral-950">
-      <Header
-        address={connectedAddress}
-        hasInjectiveBadge={hasInjectiveBadge}
-        onConnect={handleConnect}
-        onDisconnect={handleDisconnect}
-      />
-
-      <main className="pt-24 pb-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          {profile && (
-            <>
-              <IdentityCard profile={profile} />
-              <ContributionSnapshot metrics={profile.contributionMetrics} />
-              <FeaturedWork items={profile.featuredWork} />
-              <ActivityLog activities={profile.activityLog} />
-              <ExternalLinks links={profile.externalLinks} />
-              {connectedAddress === address && <ShareProfile address={address} />}
-            </>
-          )}
-        </div>
-      </main>
-    </div>
-  );
+    const description = 'On-chain contribution profile showing verifiable Injective ecosystem activity';
+    const descriptionTag = document.querySelector('meta[name="description"]') || document.createElement('meta');
+    descriptionTag.setAttribute('name', 'description');
+    descriptionTag.setAttribute('content', description);
+    document.head.appendChild(descriptionTag);
+  }, [identity]);
 }
 
 function HomePage() {
   const navigate = useNavigate();
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
 
-  const handleConnect = async (walletType: Wallet) => {
-    try {
-      const addresses = await connectWallet(walletType);
-      if (addresses.length > 0) {
-        setConnectedAddress(addresses[0]);
-        navigate(`/profile/${addresses[0]}`);
-      }
-    } catch (err) {
-      console.error('Connection failed:', err);
+  const onConnect = async (wallet: Wallet) => {
+    const addresses = await connectWallet(wallet);
+    if (addresses.length > 0) {
+      setConnectedAddress(addresses[0]);
+      navigate(`/profile/${addresses[0]}`);
     }
   };
 
-  const handleDisconnect = async () => {
+  const onDisconnect = async () => {
     await disconnectWallet();
     setConnectedAddress(null);
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950">
-      <Header
-        address={connectedAddress}
-        hasInjectiveBadge={false}
-        onConnect={handleConnect}
-        onDisconnect={handleDisconnect}
-      />
-
-      <main className="pt-24 pb-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl font-bold text-white mb-6">
-            Injective Creator Profile Verification
-          </h1>
-          <p className="text-xl text-neutral-400 mb-12 max-w-2xl mx-auto">
-            A wallet-anchored system for verifying on-chain contributions to the Injective ecosystem.
-            Connect your wallet to view your creator profile.
-          </p>
-
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-8 max-w-2xl mx-auto">
-            <h2 className="text-2xl font-bold text-white mb-4">How It Works</h2>
-            <div className="space-y-4 text-left">
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-white font-bold text-sm">1</span>
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-1">Connect Your Wallet</h3>
-                  <p className="text-neutral-400 text-sm">
-                    Use Keplr or Leap to connect your Injective wallet address
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-white font-bold text-sm">2</span>
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-1">View On-Chain Activity</h3>
-                  <p className="text-neutral-400 text-sm">
-                    All metrics are derived from verifiable blockchain transactions
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-white font-bold text-sm">3</span>
-                </div>
-                <div>
-                  <h3 className="text-white font-semibold mb-1">Share Your Profile</h3>
-                  <p className="text-neutral-400 text-sm">
-                    Get a shareable link to showcase your ecosystem contributions
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <Header identityLabel={connectedAddress} address={connectedAddress} hasInjectiveBadge={false} onConnect={onConnect} onDisconnect={onDisconnect} />
+      <main className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <h1 className="text-2xl font-semibold">Injective on-chain contribution profiles</h1>
+        <p className="mt-2 text-sm text-slate-400">Enter an Injective address or connect wallet to load a blockchain-recorded profile.</p>
+        <form
+          className="mx-auto mt-6 flex max-w-xl gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const formData = new FormData(event.currentTarget);
+            const value = String(formData.get('address') || '');
+            if (isInjectiveAddress(value)) navigate(`/profile/${value}`);
+          }}
+        >
+          <input name="address" placeholder="injective1..." className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm" />
+          <button className="rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-900">Open</button>
+        </form>
       </main>
     </div>
   );
 }
 
-function App() {
+function ProfilePage() {
+  const { identifier = '' } = useParams();
+  const navigate = useNavigate();
+  const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
+  const [profile, setProfile] = useState<CreatorProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    const run = async () => {
+      setLoading(true);
+      const data = await fetchCreatorProfile(identifier);
+      if (!active) return;
+      setProfile(data);
+      setLoading(false);
+    };
+
+    run();
+
+    return () => {
+      active = false;
+    };
+  }, [identifier]);
+
+  useProfileSeo(profile?.handle || profile?.address);
+
+  const isOwner = Boolean(connectedAddress && profile && connectedAddress === profile.address);
+  const hasBadge = Boolean(profile && checkInjectiveNativeBadge(profile.contributionMetrics));
+
+  const orderedSections = useMemo<SectionKey[]>(() => profile?.curation.sectionOrder || [], [profile?.curation.sectionOrder]);
+
+  const onConnect = async (wallet: Wallet) => {
+    const addresses = await connectWallet(wallet);
+    if (addresses.length > 0) {
+      setConnectedAddress(addresses[0]);
+      navigate(`/profile/${addresses[0]}`);
+    }
+  };
+
+  const onDisconnect = async () => {
+    await disconnectWallet();
+    setConnectedAddress(null);
+  };
+
+  const updateCuration = (next: CreatorProfile['curation']) => {
+    if (!profile) return;
+
+    const updated = { ...profile, curation: next };
+    setProfile(updated);
+    saveCurationPreferences(profile.address, next);
+  };
+
+  const moveSection = (section: SectionKey, direction: -1 | 1) => {
+    if (!profile) return;
+    const index = profile.curation.sectionOrder.indexOf(section);
+    const target = index + direction;
+    if (target < 0 || target >= profile.curation.sectionOrder.length) return;
+    const next = [...profile.curation.sectionOrder];
+    [next[index], next[target]] = [next[target], next[index]];
+    updateCuration({ ...profile.curation, sectionOrder: next });
+  };
+
+  const toggleRole = (role: RoleTag) => {
+    if (!profile) return;
+    const exists = profile.curation.roleTags.includes(role);
+    const nextRoles = exists
+      ? profile.curation.roleTags.filter((value) => value !== role)
+      : [...profile.curation.roleTags, role].slice(0, 3);
+    updateCuration({ ...profile.curation, roleTags: nextRoles });
+  };
+
+  const togglePin = (id: string) => {
+    if (!profile) return;
+    const exists = profile.curation.pinnedItemIds.includes(id);
+    const next = exists
+      ? profile.curation.pinnedItemIds.filter((value) => value !== id)
+      : [...profile.curation.pinnedItemIds, id].slice(0, 5);
+    updateCuration({ ...profile.curation, pinnedItemIds: next });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100">
+        <Header identityLabel={null} address={connectedAddress} hasInjectiveBadge={false} onConnect={onConnect} onDisconnect={onDisconnect} />
+        <div className="flex min-h-[70vh] items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-blue-300" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100">
+        <Header identityLabel={null} address={connectedAddress} hasInjectiveBadge={false} onConnect={onConnect} onDisconnect={onDisconnect} />
+        <main className="mx-auto max-w-5xl px-4 py-8">
+          <EmptyState address={identifier} />
+        </main>
+      </div>
+    );
+  }
+
+  const sectionMap: Record<SectionKey, JSX.Element | null> = {
+    identity: <IdentityCard profile={profile} />,
+    snapshot: <ContributionSnapshot metrics={profile.contributionMetrics} updatedAt={profile.dataUpdatedAt} />,
+    featured: <FeaturedWork items={profile.availableFeaturedWork} editable={isOwner} pinnedItemIds={profile.curation.pinnedItemIds} onTogglePin={togglePin} />,
+    activity: <ActivityLog activities={profile.activityLog} />,
+    links: <ExternalLinks links={profile.externalLinks} />,
+    share: isOwner ? <ShareProfile address={profile.address} /> : null,
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <Header
+        identityLabel={profile.handle || profile.address}
+        address={connectedAddress}
+        hasInjectiveBadge={hasBadge}
+        onConnect={onConnect}
+        onDisconnect={onDisconnect}
+      />
+
+      <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+        <CurationControls
+          isOwner={isOwner}
+          sectionOrder={orderedSections}
+          selectedRoles={profile.curation.roleTags}
+          onMoveSection={moveSection}
+          onToggleRole={toggleRole}
+        />
+
+        {orderedSections.map((section) => (
+          <div key={section}>{sectionMap[section]}</div>
+        ))}
+      </main>
+    </div>
+  );
+}
+
+export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/profile/:address" element={<ProfilePage />} />
+        <Route path="/profile/:identifier" element={<ProfilePage />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>
   );
 }
-
-export default App;

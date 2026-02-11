@@ -1,76 +1,39 @@
-import React from 'react';
-import { Info } from 'lucide-react';
 import { ContributionMetrics } from '../types/profile';
 
-interface ContributionSnapshotProps {
+interface Props {
   metrics: ContributionMetrics;
+  updatedAt: string;
 }
 
-interface MetricCardProps {
-  label: string;
-  value: number;
-  tooltip: string;
-}
+const cards: Array<{ key: keyof ContributionMetrics; label: string; methodology: string }> = [
+  { key: 'nftsMinted', label: 'Total NFTs minted', methodology: 'Count of transactions with NFT mint message types.' },
+  { key: 'collectionsCreated', label: 'Collections created', methodology: 'Count of collection creation messages in transaction history.' },
+  { key: 'uniqueDappsInteracted', label: 'Unique dApps interacted with', methodology: 'Unique protocol identifiers parsed from message types.' },
+  { key: 'campaignsParticipated', label: 'Ecosystem campaigns participated in', methodology: 'Count of transactions containing campaign-related message types.' },
+  { key: 'daysActive', label: 'Days active on Injective', methodology: 'Days elapsed since first recorded Injective transaction.' },
+  { key: 'totalTransactions', label: 'Total transactions on Injective', methodology: 'Number of indexed account transactions.' },
+];
 
-function MetricCard({ label, value, tooltip }: MetricCardProps) {
+export function ContributionSnapshot({ metrics, updatedAt }: Props) {
   return (
-    <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-6 hover:border-neutral-700 transition-colors group relative">
-      <div className="flex items-start justify-between mb-2">
-        <p className="text-neutral-400 text-sm font-medium">{label}</p>
-        <div className="relative">
-          <Info className="w-4 h-4 text-neutral-600 group-hover:text-neutral-400 transition-colors cursor-help" />
-          <div className="absolute top-full right-0 mt-2 w-64 bg-neutral-800 border border-neutral-700 rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 shadow-xl z-10">
-            <p className="text-neutral-300 text-xs leading-relaxed">{tooltip}</p>
-          </div>
-        </div>
+    <section>
+      <div className="mb-3 flex items-end justify-between">
+        <h2 className="text-lg font-semibold text-slate-100">Contribution snapshot</h2>
+        <span className="text-xs text-slate-400">Data updated: {new Date(updatedAt).toISOString()}</span>
       </div>
-      <p className="text-white text-4xl font-bold font-mono">{value.toLocaleString()}</p>
-    </div>
-  );
-}
-
-export function ContributionSnapshot({ metrics }: ContributionSnapshotProps) {
-  const metricCards = [
-    {
-      label: 'NFTs Minted',
-      value: metrics.nftsMinted,
-      tooltip: 'Total number of NFTs minted by this address on the Injective blockchain, verified through on-chain mint events.',
-    },
-    {
-      label: 'Collections Created',
-      value: metrics.collectionsCreated,
-      tooltip: 'Number of NFT collections created by this address, verified through collection deployment transactions.',
-    },
-    {
-      label: 'Unique dApps Interacted',
-      value: metrics.uniqueDappsInteracted,
-      tooltip: 'Count of distinct decentralized applications this address has interacted with, calculated from contract interaction history.',
-    },
-    {
-      label: 'Campaigns Participated',
-      value: metrics.campaignsParticipated,
-      tooltip: 'Number of ecosystem campaigns this address has participated in, verified through campaign contract interactions.',
-    },
-    {
-      label: 'Days Active',
-      value: metrics.daysActive,
-      tooltip: 'Total days since first transaction on Injective, calculated from the earliest recorded on-chain activity.',
-    },
-    {
-      label: 'Total Transactions',
-      value: metrics.totalTransactions,
-      tooltip: 'Total number of transactions executed by this address on the Injective blockchain.',
-    },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-white">Contribution Snapshot</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {metricCards.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map((card) => (
+          <article key={card.key} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+            <div className="text-3xl font-semibold text-slate-100">{metrics[card.key].toLocaleString()}</div>
+            <div className="mt-1 flex items-center gap-1 text-sm text-slate-400">
+              {card.label}
+              <span className="cursor-help rounded-full border border-slate-700 px-1 text-[10px]" title={card.methodology}>
+                i
+              </span>
+            </div>
+          </article>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

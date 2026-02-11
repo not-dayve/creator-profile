@@ -1,18 +1,10 @@
-export interface CreatorProfile {
-  address: string;
-  handle?: string;
-  linkedWallets: LinkedWallet[];
-  contributionMetrics: ContributionMetrics;
-  activityLog: ActivityLogEntry[];
-  featuredWork: FeaturedItem[];
-  externalLinks: ExternalLink[];
-  firstActivityDate: string;
-  roleTag: RoleTag[];
-}
+export type RoleTag = 'Artist' | 'Developer' | 'Writer' | 'Ambassador' | 'Collector' | 'Builder';
+
+export type SectionKey = 'identity' | 'snapshot' | 'featured' | 'activity' | 'links' | 'share';
 
 export interface LinkedWallet {
   address: string;
-  network: 'injective' | 'ethereum' | 'cosmos' | 'other';
+  network: 'injective' | 'evm' | 'cosmos' | 'other';
   networkName: string;
 }
 
@@ -25,9 +17,18 @@ export interface ContributionMetrics {
   totalTransactions: number;
 }
 
+export type ActivityEventType =
+  | 'NFT_MINT'
+  | 'TOKEN_TRANSFER'
+  | 'CONTRACT_INTERACTION'
+  | 'CAMPAIGN_PARTICIPATION'
+  | 'COLLECTION_CREATED'
+  | 'OTHER';
+
 export interface ActivityLogEntry {
   id: string;
-  eventType: 'NFT_MINT' | 'TOKEN_TRANSFER' | 'CONTRACT_INTERACTION' | 'CAMPAIGN_PARTICIPATION' | 'COLLECTION_CREATED';
+  network: 'injective';
+  eventType: ActivityEventType;
   protocol?: string;
   timestamp: string;
   transactionHash: string;
@@ -49,14 +50,28 @@ export interface ExternalLink {
   url: string;
 }
 
-export type RoleTag = 'Artist' | 'Developer' | 'Writer' | 'Ambassador' | 'Collector' | 'Builder';
+export interface CurationPreferences {
+  pinnedItemIds: string[];
+  sectionOrder: SectionKey[];
+  roleTags: RoleTag[];
+}
 
-export interface InjectiveNativeBadge {
-  earned: boolean;
-  thresholds: {
-    minNftsMinted: number;
-    minDappsInteracted: number;
-    minTransactions: number;
-    minDaysActive: number;
-  };
+export interface CreatorProfile {
+  address: string;
+  handle?: string;
+  linkedWallets: LinkedWallet[];
+  contributionMetrics: ContributionMetrics;
+  activityLog: ActivityLogEntry[];
+  availableFeaturedWork: FeaturedItem[];
+  externalLinks: ExternalLink[];
+  firstActivityDate: string;
+  dataUpdatedAt: string;
+  curation: CurationPreferences;
+}
+
+export interface InjectiveNativeBadgeThresholds {
+  minNftsMinted: number;
+  minDappsInteracted: number;
+  minTransactions: number;
+  minDaysActive: number;
 }
